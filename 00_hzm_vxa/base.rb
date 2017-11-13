@@ -2,12 +2,13 @@
 #===============================================================================
 # ■ HZM_VXAベーススクリプトさん for RGSS3
 #-------------------------------------------------------------------------------
-#　2012/08/01　Ru/むっくRu
+#　2017/11/14　Ruたん
 #-------------------------------------------------------------------------------
 #  他スクリプトを使用する際のベースとなるスクリプトです．
 #  基本的にはこれ単体で何かが起こるわけでは無いです．
 #-------------------------------------------------------------------------------
 # 【更新履歴】
+# 2017/11/14 [2.2.0] window_scale / window_scale= 追加
 # 2012/08/01 [2.1.0] mkdir_p 追加
 # 2012/08/01 【重要】仕様変更．メソッド名変更．ディレクトリ取得追加
 # 2012/02/11 fps表示時にウィンドウハンドルを取得できない不具合を修正
@@ -28,7 +29,7 @@ module HZM_VXA
     #    2桁目：マイナーバージョン（機能追加時に変更）
     #    3桁目：パッチバージョン（不具合修正時に変更）
     #---------------------------------------------------------------------------
-    VERSION = '2.1.0'
+    VERSION = '2.2.0'
     #---------------------------------------------------------------------------
     # ● バージョン比較処理
     #---------------------------------------------------------------------------
@@ -124,34 +125,13 @@ module HZM_VXA
     # ● ウィンドウ表示倍率の変更
     #---------------------------------------------------------------------------
     def self.window_zoom(n = 1.0)
-      return false unless n > 0
-      return false unless hwnd = getHwnd
-      return false if fullscreen?
-      # 元の位置を確認しておく
-      lp_rect = "\0" * 4 * 4
-      return false if GetWindowRect.call(hwnd, lp_rect) == 0
-      rect = lp_rect.unpack('llll')
-      base_x = rect[0]
-      base_y = rect[1]
-      # ウィンドウサイズを一度もとに戻す
-      base_w = Graphics.width
-      base_h = Graphics.height
-      Graphics.resize_screen((base_w < 640 ? base_w + 1 : base_w - 1), (base_h < 480 ? base_h + 1 : base_h - 1))
-      Graphics.resize_screen(base_w, base_h)
-      # ウィンドウの大きさを変更する
-      return false if GetWindowRect.call(hwnd, lp_rect) == 0
-      rect = lp_rect.unpack('llll')
-      bw = (rect[2] - rect[0]) - Graphics.width
-      bh = (rect[3] - rect[1]) - Graphics.height
-      w = (Graphics.width * n).to_i
-      h = (Graphics.height * n).to_i
-      return MoveWindow.call(hwnd, base_x, base_y, w + bw, h + bh, 0) != 0
+      self.window_scale = n
     end
     #---------------------------------------------------------------------------
     # ● フルスクリーンかどうか？
     #---------------------------------------------------------------------------
     def self.fullscreen?
-      return false unless hwnd = getHwnd
+      return false unless hwnd
       lp_rect1 = "\0" * 4 * 4
       lp_rect2 = "\0" * 4 * 4
       return false if GetClientRect.call(hwnd, lp_rect1) == 0 # 表示領域の大きさ
@@ -201,6 +181,50 @@ module HZM_VXA
       return if File.exist?(path)
       mkdir_p(File.dirname(path))
       Dir.mkdir(path)
+    end
+
+    class << self
+      #---------------------------------------------------------------------------
+      # ● ウィンドウ表示倍率の取得
+      #    別スクリプト下で変更された場合は正しく取得できないです
+      #---------------------------------------------------------------------------
+      def window_scale
+        @window_scale ||= 1
+      end
+
+      #---------------------------------------------------------------------------
+      # ● ウィンドウ表示倍率の変更
+      #---------------------------------------------------------------------------
+      def window_scale=(n)
+        return false unless hwnd
+        return false if fullscreen?
+
+        # 元の位置を確認しておく
+        lp_rect = "\0" * 4 * 4
+        return false if GetWindowRect.call(hwnd, lp_rect) == 0
+        rect = lp_rect.unpack('llll')
+        base_x = rect[0]
+        base_y = rect[1]
+
+        # ウィンドウサイズを一度もとに戻す
+        base_w = Graphics.width
+        base_h = Graphics.height
+        Graphics.resize_screen((base_w < 640 ? base_w + 1 : base_w - 1), (base_h < 480 ? base_h + 1 : base_h - 1))
+        Graphics.resize_screen(base_w, base_h)
+
+        # ウィンドウの大きさを変更する
+        return false if GetWindowRect.call(hwnd, lp_rect) == 0
+
+        rect = lp_rect.unpack('llll')
+        bw = (rect[2] - rect[0]) - Graphics.width
+        bh = (rect[3] - rect[1]) - Graphics.height
+        w = (Graphics.width * n).to_i
+        h = (Graphics.height * n).to_i
+        return if MoveWindow.call(hwnd, base_x, base_y, w + bw, h + bh, 0) == 0
+
+        @window_scale = n
+        true
+      end
     end
   end
   class << Base
