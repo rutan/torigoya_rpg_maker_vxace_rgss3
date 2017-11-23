@@ -2,7 +2,7 @@
 #===============================================================================
 # ■ 音量変更スクリプトさん for RGSS3
 #-------------------------------------------------------------------------------
-#　2016/04/23　Ru/むっくRu
+#　2017/11/23　Ru/むっくRu
 #-------------------------------------------------------------------------------
 #　全体の音量変更に関する機能を追加します
 #
@@ -20,6 +20,7 @@
 #
 #-------------------------------------------------------------------------------
 # 【更新履歴】
+# 2017/11/23 戦闘メニューオプションを追加
 # 2016/04/23 コードの整理
 # 2013/05/25 音量変更項目のタイプを変更するとエラー落ちしていたのを修正
 # 2012/12/17 ベーススクリプトが無くても音量を保存できるように．スクリプト整理
@@ -44,14 +45,22 @@ module HZM_VXA
     # 　false …… 表示しない
     TITLE_FLAG = true
     # タイトル画面に表示する項目名
-    TITLE_NAME        = "音量設定"
+    TITLE_NAME = "音量設定"
 
     # ● メニュー画面に音量調整を表示するか？
     # 　true  …… 表示する
     # 　false …… 表示しない
     MENU_FLAG = true
     # メニュー画面に表示する項目名
-    MENU_NAME        = "音量設定"
+    MENU_NAME = "音量設定"
+
+    # ● 戦闘メニュー画面に音量調整を表示するか？
+    #    ※挙動が不安定なため非推奨です
+    # 　true  …… 表示する
+    # 　false …… 表示しない
+    BATTLE_FLAG = false
+    # メニュー画面に表示する項目名
+    BATTLE_NAME = "音量設定"
 
     # ● 音量変更項目のタイプ
     # 　0 …… BGM/BGS/SE/MEすべて一括で設定
@@ -245,7 +254,7 @@ end
 
 # メニューに追加
 if HZM_VXA::AudioVol::MENU_FLAG
-  class Window_MenuCommand
+  class Window_MenuCommand < Window_Command
     #---------------------------------------------------------------------------
     # ● 独自コマンドの追加用（エイリアス）
     #---------------------------------------------------------------------------
@@ -255,7 +264,7 @@ if HZM_VXA::AudioVol::MENU_FLAG
       add_command(HZM_VXA::AudioVol::MENU_NAME, :hzm_vxa_audioVol)
     end
   end
-  class Scene_Menu
+  class Scene_Menu < Scene_MenuBase
     #---------------------------------------------------------------------------
     # ● コマンドウィンドウの作成（エイリアス）
     #---------------------------------------------------------------------------
@@ -268,6 +277,37 @@ if HZM_VXA::AudioVol::MENU_FLAG
     # ● 音量設定画面呼び出し
     #---------------------------------------------------------------------------
     def hzm_vxa_audioVol_command_config
+      SceneManager.call(HZM_VXA::AudioVol::Scene_VolConfig)
+    end
+  end
+end
+
+# 戦闘メニューに追加
+if HZM_VXA::AudioVol::BATTLE_FLAG
+  class Window_PartyCommand < Window_Command
+    #--------------------------------------------------------------------------
+    # ● コマンドリストの作成（エイリアス）
+    #--------------------------------------------------------------------------
+    alias hzm_vxa_audio_vol_make_command_list make_command_list
+    def make_command_list
+      hzm_vxa_audio_vol_make_command_list
+      add_command(HZM_VXA::AudioVol::BATTLE_NAME, :hzm_vxa_audio_vol)
+    end
+  end
+  class Scene_Battle < Scene_Base
+    #--------------------------------------------------------------------------
+    # ● パーティコマンドウィンドウの作成（エイリアス）
+    #--------------------------------------------------------------------------
+    alias hzm_vxa_audio_vol_create_party_command_window create_party_command_window
+    def create_party_command_window
+      hzm_vxa_audio_vol_create_party_command_window
+      @party_command_window.set_handler(:hzm_vxa_audio_vol,  method(:hzm_vxa_audio_vol_command_config))
+    end
+    #--------------------------------------------------------------------------
+    # ● コマンド［逃げる］
+    #--------------------------------------------------------------------------
+    def hzm_vxa_audio_vol_command_config
+      SceneManager.snapshot_for_background
       SceneManager.call(HZM_VXA::AudioVol::Scene_VolConfig)
     end
   end
