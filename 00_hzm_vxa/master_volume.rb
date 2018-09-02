@@ -2,7 +2,8 @@
 #===============================================================================
 # ■ 音量変更スクリプトさん for RGSS3
 #-------------------------------------------------------------------------------
-#　2017/11/23　Ru/むっくRu
+#　2018/09/02　Ruたん (ru_shalm)
+#　http://torigoya.hatenadiary.jp
 #-------------------------------------------------------------------------------
 #　全体の音量変更に関する機能を追加します
 #
@@ -20,6 +21,7 @@
 #
 #-------------------------------------------------------------------------------
 # 【更新履歴】
+# 2018/09/02 音量の保存に Game.ini を使わない設定を追加
 # 2017/11/23 戦闘メニューオプションを追加
 # 2016/04/23 コードの整理
 # 2013/05/25 音量変更項目のタイプを変更するとエラー落ちしていたのを修正
@@ -87,12 +89,20 @@ module HZM_VXA
     COLOR1 = Color.new(255, 255, 255)
     COLOR2 = Color.new( 64,  64, 255)
 
-    # ● 音量設定を保存する
+    # ● 音量設定を Game.ini に保存する
     #    Game.ini内に音量情報を保存することで
     #    次回起動時にも音量を反映できるようになります
     #    true  …… 保存する
     #    false …… 保存しない
     USE_INI = true
+
+    # ● 音量設定を volume_config.rvdata2 に保存する
+    #    volume_config.rvdata2 内に音量情報を保存することで
+    #    次回起動時にも音量を反映できるようになります。
+    #    USE_INI が ON の場合は無効になります
+    #    true  …… 保存する
+    #    false …… 保存しない
+    USE_SAVE = false
   end
 end
 
@@ -507,11 +517,25 @@ module HZM_VXA
       def terminate
         super
         @command_window.dispose
+
         if HZM_VXA::AudioVol::USE_INI
           HZM_VXA::Ini.save('AudioVol', 'BGM', Audio.bgm_vol)
           HZM_VXA::Ini.save('AudioVol', 'BGS', Audio.bgs_vol)
           HZM_VXA::Ini.save('AudioVol', 'SE', Audio.se_vol)
           HZM_VXA::Ini.save('AudioVol', 'ME', Audio.me_vol)
+        elsif HZM_VXA::AudioVol::USE_SAVE
+          begin
+            File.open('volume_config.rvdata2', 'wb') do |file|
+              data = {
+                'bgm' => Audio.bgm_vol,
+                'bgs' => Audio.bgs_vol,
+                'se' => Audio.se_vol,
+                'me' => Audio.me_vol
+              }
+              Marshal.dump(data, file)
+            end
+          rescue => e
+          end
         end
       end
     end
@@ -542,4 +566,15 @@ if HZM_VXA::AudioVol::USE_INI
   Audio.bgs_vol = (HZM_VXA::Ini.load('AudioVol', 'BGS') or 100)
   Audio.se_vol  = (HZM_VXA::Ini.load('AudioVol', 'SE') or 100)
   Audio.me_vol  = (HZM_VXA::Ini.load('AudioVol', 'ME') or 100)
+elsif HZM_VXA::AudioVol::USE_SAVE
+  begin
+    File.open('volume_config.rvdata2', 'rb') do |file|
+      config = Marshal.load(file)
+      Audio.bgm_vol = (config['bgm'] || 100).to_i
+      Audio.bgs_vol = (config['bgs'] || 100).to_i
+      Audio.se_vol = (config['se'] || 100).to_i
+      Audio.me_vol = (config['me'] || 100).to_i
+    end
+  rescue
+  end
 end
