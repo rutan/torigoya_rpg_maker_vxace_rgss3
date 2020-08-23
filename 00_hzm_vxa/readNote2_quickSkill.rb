@@ -4,7 +4,8 @@
 # ※ このスクリプトには「[hzm]メモ欄拡張共通部分さん＋ for RGSS3」が必要です
 #    「[hzm]メモ欄拡張共通部分 for RGSS3」では動作しません
 #-------------------------------------------------------------------------------
-#　2014/06/22　Ru/むっくRu
+#　2020/08/23　Ruたん (ru_shalm)
+#　http://torigoya.hatenadiary.jp
 #-------------------------------------------------------------------------------
 # 【機能1：ターン消費無しスキル/アイテム】
 #  ターンを消費せずに，選択した瞬間に発動するスキルを設定します．
@@ -44,6 +45,7 @@
 #  エリック防御→スライム通常攻撃→エリック通常攻撃
 #-------------------------------------------------------------------------------
 # 【更新履歴】
+# 2014/08/23 CHECK_ACTION_TIMES有効時、行動不能キャラが動けてしまうのを修正
 # 2014/06/22 通常攻撃にも適用できるように
 # 2014/06/07 次回行動アクター取得処理が正常に動いていないのを修正v2
 # 2013/07/18 行動終了時に解除される行動制約ステートが解除されないのを修正
@@ -342,7 +344,7 @@ class Scene_Battle < Scene_Base
   alias hzm_vxa_quickSkill_next_command next_command
   def next_command
     # ターン消費無し行動が選択されているか確認・実行
-    if @hzm_vxa_quickSkill_skill and 
+    if @hzm_vxa_quickSkill_skill and
        @hzm_vxa_quickSkill_skill.hzm_vxa_note_match(HZM_VXA::QuickSkill::QUICK_KEYS)
       # ターン消費無し行動の実行
       hzm_vxa_quickSkill_run
@@ -562,31 +564,35 @@ if HZM_VXA::QuickSkill::CHECK_ACTION_TIMES
       members.each {|member| member.hzm_vxa_quickSkill_re_action_times }
     end
   end
- 
+
   class Game_Actor < Game_Battler
     #---------------------------------------------------------------------------
     # ● 行動回数の再計算
     #---------------------------------------------------------------------------
     if HZM_VXA::QuickSkill::CHECK_ACTION_TIMES
       def hzm_vxa_quickSkill_re_action_times
+        return unless movable?
+
         action_cnt = make_action_times
         @actions.push Game_Action.new(self) while @actions.size < action_cnt
         @actions.pop while @actions.size > action_cnt
       end
     end
   end
-  
+
   class Game_Enemy < Game_Battler
     #---------------------------------------------------------------------------
     # ● 行動回数の再計算（独自）
     #---------------------------------------------------------------------------
     def hzm_vxa_quickSkill_re_action_times
+      return unless movable?
+
       action_cnt = make_action_times
       make_actions if @actions.size < action_cnt
       @actions.pop while @actions.size > action_cnt
     end
   end
-  
+
   class Scene_Battle < Scene_Base
     #---------------------------------------------------------------------------
     # ● スキル／アイテムの使用（エイリアス）
@@ -598,7 +604,7 @@ if HZM_VXA::QuickSkill::CHECK_ACTION_TIMES
       # 行動回数の再計算フラグ（エネミーの場合）
       item = (@subject.enemy? and @subject.current_action) ?
         @subject.current_action.item : nil
-      @hzm_vxa_quickSkill_re_action_times_flag = 
+      @hzm_vxa_quickSkill_re_action_times_flag =
         (item and item.hzm_vxa_note_match(HZM_VXA::QuickSkill::QUICK_KEYS))
     end
   end
