@@ -2,7 +2,7 @@
 #===============================================================================
 # ■ バトルログに再生量表示スクリプト
 #-------------------------------------------------------------------------------
-# 2019/03/09　Ruたん
+# 2020/12/26　Ruたん
 #-------------------------------------------------------------------------------
 # このスクリプトはフトコロさんの作成した
 # RPGツクールMV用の FTKR_DisplayRegenerateMessage.js を元ネタに作成しています
@@ -11,6 +11,7 @@
 # ターン終了時に HP / MP / TP の再生量をバトルログに表示するようにします
 #-------------------------------------------------------------------------------
 # 【更新履歴】
+# 2020/12/26 HP以外動いていなかったのを修正(◞‸◟)
 # 2019/03/09 作成
 #-------------------------------------------------------------------------------
 
@@ -114,9 +115,10 @@ class Window_BattleLog < Window_Selectable
   # ● 回復メッセージの表示
   #--------------------------------------------------------------------------
   def display_regenerate_message(target)
-    [:hp_damage, :mp_damage, :tp_damage].each do |name|
-      next if target.result.public_send(name) == 0
-      add_text(Torigoya::DisplayRegenerateMessage.generate_message(:hp, target.name, target.result.public_send(name)))
+    [:hp, :mp, :tp].each do |name|
+      method_name = "#{name}_damage"
+      next if target.result.public_send(method_name) == 0
+      add_text(Torigoya::DisplayRegenerateMessage.generate_message(name, target.name, target.result.public_send(method_name)))
       wait
     end
   end
