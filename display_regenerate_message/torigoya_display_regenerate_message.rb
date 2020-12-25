@@ -116,11 +116,17 @@ class Window_BattleLog < Window_Selectable
   #--------------------------------------------------------------------------
   def display_regenerate_message(target)
     [:hp, :mp, :tp].each do |name|
-      method_name = "#{name}_damage"
-      next if target.result.public_send(method_name) == 0
-      add_text(Torigoya::DisplayRegenerateMessage.generate_message(name, target.name, target.result.public_send(method_name)))
-      wait
+      display_regenerate_message_item(target, name)
     end
+  end
+  #--------------------------------------------------------------------------
+  # ● 回復メッセージの個別表示
+  #--------------------------------------------------------------------------
+  def display_regenerate_message_item(target, name)
+    method_name = "#{name}_damage"
+    return if target.result.public_send(method_name) == 0
+    add_text(Torigoya::DisplayRegenerateMessage.generate_message(name, target.name, target.result.public_send(method_name)))
+    wait
   end
 end
 
