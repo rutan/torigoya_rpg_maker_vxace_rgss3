@@ -2,7 +2,7 @@
 #===============================================================================
 # ■ [音量変更スクリプトさんアドオン] スイッチ設定さん for RGSS3
 #-------------------------------------------------------------------------------
-#　2016/04/23　Ru/むっくRu
+#　2021/12/15　Ruたん
 #-------------------------------------------------------------------------------
 #　このスクリプトは「音量変更スクリプトさん for RGSS3」に機能を追加するものです。
 #　導入時は「音量変更スクリプトさん」より下に導入してください。
@@ -10,9 +10,11 @@
 #　音量変更画面にスイッチON/OFFの設定を追加します。
 #-------------------------------------------------------------------------------
 # 【更新履歴】
+# 2021/12/15 有効な場面判定を行うように
+#            デフォルトではタイトル画面ではスイッチを変更できないようにします
 # 2016/04/23 デフォルトオプションを追加
 # 2016/04/23 つくってみた
-#-------------------------------------------------------------------------------
+#===============================================================================
 
 #===============================================================================
 # ● 設定項目
@@ -34,7 +36,10 @@ module HZM_VXA
           # OFFのときの表示
           label_off: 'OFF',
           # 初期のON/OFF状態(true: 最初からON  false: 最初からOFF)
-          default: true
+          default: true,
+          # この項目が有効な場面
+          # （0: 常に / 1: タイトル画面のみ / 2: タイトル画面以外）
+          enable_scene: 2,
         },
 
         # 設定2つ目
@@ -48,11 +53,23 @@ module HZM_VXA
           # OFFのときの表示
           label_off: 'おふ',
           # 初期のON/OFF状態(true: 最初からON  false: 最初からOFF)
-          default: false
+          default: false,
+          # この項目が有効な場面
+          # （0: 常に / 1: タイトル画面のみ / 2: タイトル画面以外）
+          enable_scene: 2,
         },
 
         # 設定ここまで
       ]
+
+      # ● 無効な場合も画面に項目を表示するか？
+      #    true : する / false : しない
+      SHOW_DISABLE_ITEM = true
+
+      # ● 設定内容をなるべく他のセーブデータに引き継ぐ互換モードを使用する
+      #    ※できる限り使用せず「共有スイッチ・変数スクリプトさん」をご利用ください
+      #    true : 互換モードを使用する / false : 互換モードを使用しない
+      LEGACY = false
     end
   end
 end
@@ -73,7 +90,20 @@ module HZM_VXA
       def make_command_list_actions
         hzm_vxa_volume_addon_switches_make_command_list_actions
         HZM_VXA::AudioVol::Switches::LIST.each do |item|
-          add_command(item[:name], :addon_switch, true, item)
+          flag =
+            case item[:enable_scene]
+            when 1
+              SceneManager.include_stack?(Scene_Title)
+            when 2
+              !SceneManager.include_stack?(Scene_Title)
+            else
+              true
+            end
+
+          # フラグが無効かつ非表示モードの場合は項目を追加しない
+          next if !flag && !HZM_VXA::AudioVol::Switches::SHOW_DISABLE_ITEM
+
+          add_command(item[:name], :addon_switch, flag, item)
         end
       end
       #-------------------------------------------------------------------------
@@ -145,26 +175,7 @@ end
 
 class << DataManager
   #--------------------------------------------------------------------------
-  # ● 各種ゲームオブジェクトの作成
-  #--------------------------------------------------------------------------
-  alias hzm_vxa_volume_addon_switches_create_game_objects create_game_objects
-  def create_game_objects
-    backup_switches = {}
-    if $game_switches
-      HZM_VXA::AudioVol::Switches::LIST.each do |item|
-        backup_switches[item[:id]] = $game_switches[item[:id]]
-      end
-    end
-    hzm_vxa_volume_addon_switches_create_game_objects
-    backup_switches.each do |id, value|
-      $game_switches[id] = value
-    end
-  end
-end
-
-class << DataManager
-  #--------------------------------------------------------------------------
-  # ● モジュール初期化
+  # ● モジュール初期化（エイリアス）
   #--------------------------------------------------------------------------
   alias hzm_vxa_volume_addon_switches_init init
   def init
@@ -172,5 +183,36 @@ class << DataManager
     HZM_VXA::AudioVol::Switches::LIST.each do |item|
       $game_switches[item[:id]] = item[:default]
     end
+  end
+
+  # [互換モード] 現在のスイッチの値をなるべく引き継ぐ
+  if HZM_VXA::AudioVol::Switches::LEGACY
+    #--------------------------------------------------------------------------
+    # ● 各種ゲームオブジェクトの作成（エイリアス）
+    #--------------------------------------------------------------------------
+    alias hzm_vxa_volume_addon_switches_create_game_objects create_game_objects
+    def create_game_objects
+      backup_switches = {}
+      if $game_switches
+        HZM_VXA::AudioVol::Switches::LIST.each do |item|
+          backup_switches[item[:id]] = $game_switches[item[:id]]
+        end
+      end
+      hzm_vxa_volume_addon_switches_create_game_objects
+      backup_switches.each do |id, value|
+        $game_switches[id] = value
+      end
+    end
+  end
+end
+
+module SceneManager
+  #--------------------------------------------------------------------------
+  # ● 呼び出し元のシーンクラス判定
+  #    メニュー画面のようなスタック式のシーン遷移をした場合の
+  #    親シーンの中に指定のシーンが含まれるかを判定します
+  #--------------------------------------------------------------------------
+  def self.include_stack?(scene_class)
+    @stack.any? { |scene| scene.instance_of?(scene_class) }
   end
 end
