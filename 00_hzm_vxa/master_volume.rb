@@ -2,8 +2,8 @@
 #===============================================================================
 # ■ 音量変更スクリプトさん for RGSS3
 #-------------------------------------------------------------------------------
-#　2018/09/02　Ruたん (ru_shalm)
-#　http://torigoya.hatenadiary.jp
+#　2022/05/21　Ruたん (ru_shalm)
+#　https://torigoya.hatenadiary.jp
 #-------------------------------------------------------------------------------
 #　全体の音量変更に関する機能を追加します
 #
@@ -21,6 +21,7 @@
 #
 #-------------------------------------------------------------------------------
 # 【更新履歴】
+# 2022/05/21 BGS音量変更時に反映されないのを修正＆細かい修正
 # 2018/09/02 音量の保存に Game.ini を使わない設定を追加
 # 2017/11/23 戦闘メニューオプションを追加
 # 2016/04/23 コードの整理
@@ -89,6 +90,10 @@ module HZM_VXA
     COLOR1 = Color.new(255, 255, 255)
     COLOR2 = Color.new( 64,  64, 255)
 
+    # ● 音量変更画面のヘルプメッセージ
+    #    \n で改行ができます
+    HELP_MESSAGE = "ゲームの音量の調整ができます。（0：無音～100:最大）\n←　音量を下げる　／　音量を上げる　→"
+
     # ● 音量設定を Game.ini に保存する
     #    Game.ini内に音量情報を保存することで
     #    次回起動時にも音量を反映できるようになります
@@ -102,7 +107,7 @@ module HZM_VXA
     #    USE_INI が ON の場合は無効になります
     #    true  …… 保存する
     #    false …… 保存しない
-    USE_SAVE = false
+    USE_SAVE = true
   end
 end
 
@@ -111,18 +116,110 @@ end
 # ↓ 以下、スクリプト部 ↓
 #===============================================================================
 
+module HZM_VXA
+  module AudioVol
+    CONFIG_SAVE_FILE_NAME = 'volume_config.rvdata2'
+    #---------------------------------------------------------------------------
+    # ● 音量設定の読み込み
+    #---------------------------------------------------------------------------
+    def self.load
+      case
+      when HZM_VXA::AudioVol::USE_INI
+        load_from_ini
+      when HZM_VXA::AudioVol::USE_SAVE
+        load_from_file
+      end
+    end
+    #---------------------------------------------------------------------------
+    # ● iniファイルから音量設定を読み込む
+    #---------------------------------------------------------------------------
+    def self.load_from_ini
+      Audio.bgm_vol = (HZM_VXA::Ini.load('AudioVol', 'BGM') || 100)
+      Audio.bgs_vol = (HZM_VXA::Ini.load('AudioVol', 'BGS') || 100)
+      Audio.se_vol  = (HZM_VXA::Ini.load('AudioVol', 'SE') || 100)
+      Audio.me_vol  = (HZM_VXA::Ini.load('AudioVol', 'ME') || 100)
+    end
+    #---------------------------------------------------------------------------
+    # ● 設定ファイルから音量設定を読み込む
+    #---------------------------------------------------------------------------
+    def self.load_from_file
+      File.open(CONFIG_SAVE_FILE_NAME, 'rb') do |file|
+        begin
+          extract_save_from_file(Marshal.load(file))
+        rescue
+        end
+      end
+    end
+    #---------------------------------------------------------------------------
+    # ● 設定ファイルのデータを反映する
+    #---------------------------------------------------------------------------
+    def self.extract_save_from_file(data)
+      Audio.bgm_vol = (data['bgm'] || 100).to_i
+      Audio.bgs_vol = (data['bgs'] || 100).to_i
+      Audio.se_vol = (data['se'] || 100).to_i
+      Audio.me_vol = (data['me'] || 100).to_i
+    end
+    #---------------------------------------------------------------------------
+    # ● 音量設定をセーブする
+    #---------------------------------------------------------------------------
+    def self.save
+      case
+      when HZM_VXA::AudioVol::USE_INI
+        save_to_ini
+      when HZM_VXA::AudioVol::USE_SAVE
+        save_to_file
+      end
+    end
+    #---------------------------------------------------------------------------
+    # ● iniファイルに音量設定を書き込む
+    #---------------------------------------------------------------------------
+    def self.save_to_ini
+      HZM_VXA::Ini.save('AudioVol', 'BGM', Audio.bgm_vol)
+      HZM_VXA::Ini.save('AudioVol', 'BGS', Audio.bgs_vol)
+      HZM_VXA::Ini.save('AudioVol', 'SE', Audio.se_vol)
+      HZM_VXA::Ini.save('AudioVol', 'ME', Audio.me_vol)
+    end
+    #---------------------------------------------------------------------------
+    # ● 設定ファイルに音量設定を書き込む
+    #---------------------------------------------------------------------------
+    def self.save_to_file
+      begin
+        File.open(CONFIG_SAVE_FILE_NAME, 'wb') do |file|
+          Marshal.dump(make_save_for_file, file)
+        end
+      rescue
+      end
+    end
+    #---------------------------------------------------------------------------
+    # ● 設定値を設定ファイルのデータ化する
+    #---------------------------------------------------------------------------
+    def self.make_save_for_file
+      {
+        'bgm' => Audio.bgm_vol,
+        'bgs' => Audio.bgs_vol,
+        'se' => Audio.se_vol,
+        'me' => Audio.me_vol
+      }
+    end
+  end
+end
+
 module Audio
   #-----------------------------------------------------------------------------
   # ● 音量設定：BGM（独自）
   #-----------------------------------------------------------------------------
   def self.bgm_vol=(vol)
     @hzm_vxa_audioVol_bgm = self.vol_range(vol)
+    bgm = RPG::BGM.last
+    Audio.bgm_play("Audio/BGM/#{bgm.name}", bgm.volume, bgm.pitch, bgm.pos) unless bgm.name.empty?
   end
   #-----------------------------------------------------------------------------
   # ● 音量設定：BGS（独自）
   #-----------------------------------------------------------------------------
   def self.bgs_vol=(vol)
     @hzm_vxa_audioVol_bgs = self.vol_range(vol)
+    bgs = RPG::BGS.last
+    Audio.bgs_play("Audio/BGS/#{bgs.name}", bgs.volume, bgs.pitch, bgs.pos) unless bgs.name.empty?
   end
   #-----------------------------------------------------------------------------
   # ● 音量設定：SE（独自）
@@ -396,28 +493,32 @@ module HZM_VXA
       def draw_item(index)
         @now_drawing_index = index
         super
+
         case command_symbol(index)
-        when :all, :bgm, :bgs, :se, :me
-          draw_item_volume_guage(index)
+        when :all, :bgm
+          draw_item_volume_guage(index, Audio.bgm_vol)
+        when :bgs
+          draw_item_volume_guage(index, Audio.bgs_vol)
+        when :se
+          draw_item_volume_guage(index, Audio.se_vol)
+        when :me
+          draw_item_volume_guage(index, Audio.me_vol)
         end
       end
       #-------------------------------------------------------------------------
       # ● 項目の描画：音量ゲージ
       #-------------------------------------------------------------------------
-      def draw_item_volume_guage(index)
-        vol =
-          case command_symbol(index)
-          when :all, :bgm
-            Audio.bgm_vol
-          when :bgs
-            Audio.bgs_vol
-          when :se
-            Audio.se_vol
-          when :me
-            Audio.me_vol
-          end
-        draw_gauge(item_rect_for_text(index).x + 96 - 8, item_rect_for_text(index).y, contents_width - 96, vol/100.0, HZM_VXA::AudioVol::COLOR1, HZM_VXA::AudioVol::COLOR2)
-        draw_text(item_rect_for_text(index), vol, 2)
+      def draw_item_volume_guage(index, value)
+        r = item_rect_for_text(index)
+        draw_gauge(
+          r.x + 96 - 8,
+          r.y,
+          contents_width - 96,
+          value / 100.0,
+          HZM_VXA::AudioVol::COLOR1,
+          HZM_VXA::AudioVol::COLOR2
+        )
+        draw_text(r, value, 2)
       end
       #-------------------------------------------------------------------------
       # ● 音量増加
@@ -451,9 +552,6 @@ module HZM_VXA
       def add_vol_bgm(val)
         old = Audio.bgm_vol
         Audio.bgm_vol += val
-        if music = RPG::BGM.last and music.name.size > 0
-          Audio.bgm_play("Audio/BGM/#{music.name}", music.volume, music.pitch, music.pos)
-        end
         Audio.bgm_vol != old
       end
       def add_vol_bgs(val)
@@ -509,7 +607,11 @@ module HZM_VXA
         @command_window = Window_VolConfig.new
         @command_window.viewport = @viewport
         @command_window.set_handler(:cancel,   method(:return_scene))
-        @help_window.set_text("ゲームの音量の調整ができます。（0：無音～100:最大）\n←　音量を下げる　／　音量を上げる　→")
+        if HZM_VXA::AudioVol::HELP_MESSAGE.empty?
+          @help_window.hide
+        else
+          @help_window.set_text(HZM_VXA::AudioVol::HELP_MESSAGE)
+        end
       end
       #-------------------------------------------------------------------------
       # ● 終了処理
@@ -517,28 +619,20 @@ module HZM_VXA
       def terminate
         super
         @command_window.dispose
-
-        if HZM_VXA::AudioVol::USE_INI
-          HZM_VXA::Ini.save('AudioVol', 'BGM', Audio.bgm_vol)
-          HZM_VXA::Ini.save('AudioVol', 'BGS', Audio.bgs_vol)
-          HZM_VXA::Ini.save('AudioVol', 'SE', Audio.se_vol)
-          HZM_VXA::Ini.save('AudioVol', 'ME', Audio.me_vol)
-        elsif HZM_VXA::AudioVol::USE_SAVE
-          begin
-            File.open('volume_config.rvdata2', 'wb') do |file|
-              data = {
-                'bgm' => Audio.bgm_vol,
-                'bgs' => Audio.bgs_vol,
-                'se' => Audio.se_vol,
-                'me' => Audio.me_vol
-              }
-              Marshal.dump(data, file)
-            end
-          rescue => e
-          end
-        end
+        HZM_VXA::AudioVol.save
       end
     end
+  end
+end
+
+class << SceneManager
+  #--------------------------------------------------------------------------
+  # ● 実行（エイリアス）
+  #--------------------------------------------------------------------------
+  alias hzm_vxa_audioVol_run run
+  def run
+    HZM_VXA::AudioVol.load
+    hzm_vxa_audioVol_run
   end
 end
 
@@ -561,20 +655,5 @@ if HZM_VXA::AudioVol::USE_INI
       end
     end
   end
-  # 音量初期値読込
-  Audio.bgm_vol = (HZM_VXA::Ini.load('AudioVol', 'BGM') or 100)
-  Audio.bgs_vol = (HZM_VXA::Ini.load('AudioVol', 'BGS') or 100)
-  Audio.se_vol  = (HZM_VXA::Ini.load('AudioVol', 'SE') or 100)
-  Audio.me_vol  = (HZM_VXA::Ini.load('AudioVol', 'ME') or 100)
-elsif HZM_VXA::AudioVol::USE_SAVE
-  begin
-    File.open('volume_config.rvdata2', 'rb') do |file|
-      config = Marshal.load(file)
-      Audio.bgm_vol = (config['bgm'] || 100).to_i
-      Audio.bgs_vol = (config['bgs'] || 100).to_i
-      Audio.se_vol = (config['se'] || 100).to_i
-      Audio.me_vol = (config['me'] || 100).to_i
-    end
-  rescue
-  end
 end
+
