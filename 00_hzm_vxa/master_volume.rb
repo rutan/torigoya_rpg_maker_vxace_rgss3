@@ -21,6 +21,7 @@
 #
 #-------------------------------------------------------------------------------
 # 【更新履歴】
+# 2022/05/21 volume_config.rvdata2使用時にエラー落ちするのを修正
 # 2022/05/21 BGS音量変更時に反映されないのを修正＆細かい修正
 # 2018/09/02 音量の保存に Game.ini を使わない設定を追加
 # 2017/11/23 戦闘メニューオプションを追加
@@ -143,11 +144,11 @@ module HZM_VXA
     # ● 設定ファイルから音量設定を読み込む
     #---------------------------------------------------------------------------
     def self.load_from_file
-      File.open(CONFIG_SAVE_FILE_NAME, 'rb') do |file|
-        begin
+      begin
+        File.open(CONFIG_SAVE_FILE_NAME, 'rb') do |file|
           extract_save_from_file(Marshal.load(file))
-        rescue
         end
+      rescue
       end
     end
     #---------------------------------------------------------------------------
@@ -187,7 +188,8 @@ module HZM_VXA
         File.open(CONFIG_SAVE_FILE_NAME, 'wb') do |file|
           Marshal.dump(make_save_for_file, file)
         end
-      rescue
+      rescue => _
+        nil
       end
     end
     #---------------------------------------------------------------------------
