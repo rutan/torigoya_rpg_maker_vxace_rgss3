@@ -188,8 +188,7 @@ module HZM_VXA
         File.open(CONFIG_SAVE_FILE_NAME, 'wb') do |file|
           Marshal.dump(make_save_for_file, file)
         end
-      rescue => _
-        nil
+      rescue
       end
     end
     #---------------------------------------------------------------------------
@@ -648,7 +647,7 @@ if HZM_VXA::AudioVol::USE_INI
       end
       class Ini
         INI_FILENAME = './Game.ini'
-        def self.load(section, key)
+        def self.load(section, key, length = 255)
           HZM_VXA::Base::GetPrivateProfileInt.call(section, key, 100, INI_FILENAME).to_i
         end
         def self.save(section, key, value)
@@ -658,4 +657,3 @@ if HZM_VXA::AudioVol::USE_INI
     end
   end
 end
-

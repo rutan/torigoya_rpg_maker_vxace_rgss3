@@ -142,7 +142,7 @@ module HZM_VXA
       alias hzm_vxa_volume_addon_voices_make_command_list_actions make_command_list_actions
       def make_command_list_actions
         hzm_vxa_volume_addon_voices_make_command_list_actions
-        add_command(HZM_VXA::AudioVol::Voices::CONFIG_VOICE_NAME, :voice) if @mode == 2
+        add_command(HZM_VXA::AudioVol::Voices::CONFIG_VOICE_NAME, :voice) unless @mode == 0
       end
       #-------------------------------------------------------------------------
       # ● 項目の描画（エイリアス）
