@@ -114,7 +114,7 @@ class << Audio
   alias hzm_vxa_volume_addon_voices_se_play se_play
   def se_play(filename, volume = 100, pitch = 100)
     if HZM_VXA::AudioVol::Voices.voice_file?(filename)
-      hzm_vxa_audioVol_se_play(filename, volume * self.voice_vol, pitch)
+      hzm_vxa_audioVol_se_play(filename, volume * self.voice_vol / 100, pitch)
     else
       hzm_vxa_volume_addon_voices_se_play(filename, volume, pitch)
     end
@@ -127,7 +127,7 @@ class << Audio
     #---------------------------------------------------------------------------
     alias hzm_vxa_volume_addon_voices_voice_play voice_play
     def voice_play(filename, volume = 100, pitch = 100)
-      hzm_vxa_volume_addon_voices_voice_play(filename, volume * self.voice_vol, pitch)
+      hzm_vxa_volume_addon_voices_voice_play(filename, volume * self.voice_vol / 100, pitch)
     end
   end
 end
